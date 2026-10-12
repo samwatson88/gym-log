@@ -1,5 +1,5 @@
-// Bump CACHE when you change index.html so phones pick up the new version.
-const CACHE = "gymlog-v3";
+// Network-first: the app updates as soon as you're online. Cache is the offline fallback.
+const CACHE = "ascend-v1";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -14,15 +14,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Cache-first for the app's own files; network for everything else (e.g. the Sheets sync POST is not cached).
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+    fetch(req).then((res) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(req, copy));
       return res;
-    }).catch(() => caches.match("./index.html")))
+    }).catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
   );
 });
