@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gym Log">
+<meta name="theme-color" content="#111418">
+<link rel="manifest" href="manifest.json">
+<title>Gym Log</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --text: #15181d; --muted: #6b7280;
+  --accent: #2563eb; --line: #e3e6eb; --warn: #b45309; --danger: #dc2626;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111418; --card: #1b1f26; --text: #eef0f3; --muted: #9aa3af; --accent: #3b82f6; --line: #2a303a; --warn: #fbbf24; }
+}
+html, body { margin: 0; min-height: 100%; }
+body { font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 16px; padding-bottom: env(safe-area-inset-bottom, 0px); }
+header { position: sticky; top: 0; background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); display: flex; align-items: center; justify-content: space-between; gap: 8px; z-index: 5; flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; }
+nav { display: flex; gap: 6px; }
+nav button { background: none; border: 1px solid var(--line); color: var(--muted); padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+main { padding: 12px; max-width: 720px; margin: 0 auto; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.card h2 { font-size: 16px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.muted { color: var(--muted); font-size: 13px; }
+.rest { color: var(--warn); font-weight: 600; }
+button.primary { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 14px; font-size: 15px; font-weight: 600; width: 100%; }
+button.ghost { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+button.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
+button.danger { color: var(--danger); border-color: var(--danger); }
+.row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; width: 100%; }
+input.num { width: 90px; text-align: center; font-size: 18px; }
+label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.cue { font-size: 14px; line-height: 1.5; margin: 6px 0 0; padding-left: 18px; }
+.cue li { margin-bottom: 4px; }
+details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.timer { font-size: 32px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.hidden { display: none !important; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; text-align: center; }
+.toast.show { opacity: 1; }
+.set-line { display: grid; grid-template-columns: 30px 1fr 1fr 1.6fr auto; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+.set-line:last-child { border-bottom: none; }
+.status { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gym Log</h1>
+  <nav>
+    <button id="tabWorkout" class="active">Workout</button>
+    <button id="tabHistory">History</button>
+    <button id="tabSettings">Settings</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- WORKOUT -->
+  <section id="viewWorkout">
+    <div class="card" id="startCard">
+      <h2>Session</h2>
+      <p class="muted" id="sessionInfo">No workout running.</p>
+      <button class="primary" id="startBtn">Start workout</button>
+    </div>
+
+    <div id="workoutArea" class="hidden">
+      <div class="card">
+        <h2>Rest timer <span class="badge" id="lastSetBadge">no sets yet</span></h2>
+        <div class="timer" id="restDisplay">0:00</div>
+        <p class="muted" style="text-align:center" id="restNote">Time since your last logged set.</p>
+      </div>
+
+      <div class="card">
+        <h2>Add exercise</h2>
+        <select id="exerciseSelect"></select>
+        <div style="height:8px"></div>
+        <button class="primary" id="addExerciseBtn">Add to workout</button>
+      </div>
+
+      <div id="exerciseList"></div>
+
+      <div class="card">
+        <button class="primary" id="finishBtn">Finish workout</button>
+        <div style="height:8px"></div>
+        <button class="ghost danger" id="discardBtn" style="width:100%">Discard workout</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="viewHistory" class="hidden">
+    <div class="card">
+      <h2>Past workouts <button class="ghost small" id="exportCsvBtn">Export CSV</button></h2>
+      <div id="historyList" class="muted">No workouts yet.</div>
+    </div>
+    <div class="card">
+      <h2>Personal bests</h2>
+      <div id="prList" class="muted">No data yet.</div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="viewSettings" class="hidden">
+    <div class="card">
+      <h2>Custom exercise</h2>
+      <div class="grid2">
+        <div><label>Name</label><input id="newExName" placeholder="e.g. Cable Fly"></div>
+        <div><label>Form cue (optional)</label><input id="newExCue" placeholder="One short tip"></div>
+      </div>
+      <div style="height:8px"></div>
+      <button class="ghost" id="addCustomBtn">Add exercise</button>
+    </div>
+
+    <div class="card">
+      <h2>Google Sheets sync</h2>
+      <p class="muted">Paste your Apps Script web app URL. Sets logged offline are queued and sent automatically once you're back online.</p>
+      <label>Web app URL</label>
+      <input id="syncUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <div style="height:8px"></div>
+      <div class="row">
+        <button class="primary" id="saveSyncBtn" style="width:auto">Save</button>
+        <button class="ghost" id="testSyncBtn">Send test row</button>
+        <button class="ghost" id="flushBtn">Send queued now</button>
+      </div>
+      <p class="muted status" id="syncStatus"></p>
+    </div>
+
+    <div class="card">
+      <h2>Data</h2>
+      <button class="ghost danger" id="wipeBtn">Erase all data on this device</button>
+    </div>
+
+    <div class="card">
+      <h2>Sheets setup</h2>
+      <ol class="cue">
+        <li>In Google Drive, create a sheet. Under Extensions, choose Apps Script.</li>
+        <li>Paste the code below, then Deploy, New deployment, Web app. Set access to Anyone.</li>
+        <li>Copy the web app URL into the box above.</li>
+      </ol>
+<pre style="white-space:pre-wrap;font-size:12px;overflow-x:auto">function doPost(e) {
+  var d = JSON.parse(e.postData.contents);
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(["timestamp","workout_date","exercise","set","weight_kg","reps","set_time","rest_seconds"]);
+  }
+  sh.appendRow([d.timestamp, d.workoutDate, d.exercise, d.set, d.weight, d.reps, d.setTime, d.restSeconds]);
+  return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LIBRARY = [
+  { name: "Back Squat", cues: ["Brace your core before each rep.", "Feet about shoulder width, toes slightly out.", "Knees track in line with your toes.", "Descend to a depth you control, hip crease at or below knee if mobility allows.", "Drive through mid-foot and keep your chest up."] },
+  { name: "Deadlift", cues: ["Bar over mid-foot, shins nearly touching it.", "Hips between squat and hinge, back flat.", "Push the floor away rather than yanking with your back.", "Lock out by squeezing glutes, don't hyperextend.", "Lower under control."] },
+  { name: "Romanian Deadlift", cues: ["Soft knees, not squatting.", "Push hips back until you feel a hamstring stretch.", "Keep the bar close to your legs.", "Stop when the stretch ends or your back starts to round."] },
+  { name: "Bench Press", cues: ["Pull shoulder blades back and down.", "Feet flat, glutes on the bench.", "Lower the bar to your lower chest.", "Elbows at about 45 degrees to your torso.", "Press up and slightly back toward your face."] },
+  { name: "Overhead Press", cues: ["Squeeze glutes and brace your core.", "Bar path straight up, close to your face.", "Move your head back, then through as the bar passes.", "Finish with the bar over mid-foot, ribs down."] },
+  { name: "Barbell Row", cues: ["Hinge to about 45 degrees with a flat back.", "Pull the bar to your lower ribs.", "Lead with the elbows.", "Control the lowering phase."] },
+  { name: "Pull-Up", cues: ["Start from a full dead hang.", "Pull shoulder blades down before bending the elbows.", "Get your chin over the bar.", "Lower slowly."] },
+  { name: "Lat Pulldown", cues: ["Chest up, slight lean back.", "Pull the bar to your upper chest.", "Drive elbows down toward your back pockets.", "Let the arms stretch fully at the top."] },
+  { name: "Dumbbell Curl", cues: ["Keep elbows still by your sides.", "Straighten fully at the bottom.", "Don't swing your torso.", "Pause briefly at the top."] },
+  { name: "Leg Press", cues: ["Feet shoulder width, mid-platform.", "Lower until knees reach about 90 degrees.", "Keep your lower back on the pad.", "Press through the whole foot."] },
+];
+
+const KEY = "gymlog.v2";
+let state = load() || { exercises: [], history: [], current: null, syncUrl: "", pending: [] };
+state.pending = state.pending || [];
+let timerInterval = null;
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function allExercises() { return LIBRARY.concat(state.exercises || []); }
+
+const $ = id => document.getElementById(id);
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2200);
+}
+function fmtDur(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"); }
+function fmtTime(iso) { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+// ---------- Tabs ----------
+function showTab(name) {
+  ["Workout","History","Settings"].forEach(n => {
+    $("tab" + n).classList.toggle("active", n === name);
+    $("view" + n).classList.toggle("hidden", n !== name);
+  });
+  if (name === "History") renderHistory();
+  if (name === "Settings") { $("syncUrl").value = state.syncUrl || ""; updateSyncStatus(); }
+}
+$("tabWorkout").onclick = () => showTab("Workout");
+$("tabHistory").onclick = () => showTab("History");
+$("tabSettings").onclick = () => showTab("Settings");
+
+function refreshSelect() {
+  $("exerciseSelect").innerHTML = allExercises().map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
+}
+
+// ---------- Workout ----------
+$("startBtn").onclick = () => {
+  state.current = { id: Date.now(), date: todayStr(), startedAt: new Date().toISOString(), exercises: [] };
+  save(); renderWorkout();
+};
+$("addExerciseBtn").onclick = () => {
+  if (!state.current) return;
+  const name = $("exerciseSelect").value;
+  if (!name) return;
+  state.current.exercises.push({ name, sets: [] });
+  save(); renderWorkout();
+};
+
+function lastSetTime() {
+  if (!state.current) return null;
+  let latest = null;
+  state.current.exercises.forEach(ex => ex.sets.forEach(s => { if (!latest || s.time > latest) latest = s.time; }));
+  return latest;
+}
+
+function logSet(exIdx) {
+  const ex = state.current.exercises[exIdx];
+  const card = document.querySelector(`[data-ex="${exIdx}"]`);
+  const weight = parseFloat(card.querySelector(".inpW").value) || 0;
+  const reps = parseInt(card.querySelector(".inpR").value, 10) || 0;
+  if (reps <= 0) { toast("Enter reps first"); return; }
+
+  const now = new Date();
+  const prev = lastSetTime();
+  const restSeconds = prev ? Math.round((now - new Date(prev)) / 1000) : null;
+  const set = { weight, reps, time: now.toISOString(), restSeconds };
+  ex.sets.push(set);
+  queueSet({
+    timestamp: now.toISOString(),
+    workoutDate: state.current.date,
+    exercise: ex.name, set: ex.sets.length,
+    weight, reps, setTime: set.time, restSeconds: restSeconds ?? ""
+  });
+  save(); renderWorkout();
+  toast("Set logged");
+}
+function deleteSet(exIdx, setIdx) { state.current.exercises[exIdx].sets.splice(setIdx, 1); save(); renderWorkout(); }
+function removeExercise(exIdx) {
+  if (!confirm("Remove this exercise and its sets?")) return;
+  state.current.exercises.splice(exIdx, 1); save(); renderWorkout();
+}
+
+$("finishBtn").onclick = () => {
+  const w = state.current; if (!w) return;
+  const total = w.exercises.reduce((n, e) => n + e.sets.length, 0);
+  if (total === 0 && !confirm("No sets logged. Finish anyway?")) return;
+  w.endedAt = new Date().toISOString();
+  state.history.unshift(w);
+  state.current = null;
+  save(); renderWorkout(); showTab("History"); toast("Workout saved");
+};
+$("discardBtn").onclick = () => {
+  if (!confirm("Discard this workout? It will not be saved.")) return;
+  state.current = null; save(); renderWorkout();
+};
+
+// ---------- Rest timer ----------
+function tickRest() {
+  const prev = lastSetTime();
+  const el = $("restDisplay");
+  if (!prev) { el.textContent = "0:00"; $("restNote").textContent = "Log your first set to start timing."; $("restNote").className = "muted"; return; }
+  const elapsed = (Date.now() - new Date(prev)) / 1000;
+  el.textContent = fmtDur(elapsed);
+  $("restNote").textContent = "Since your last set (" + fmtTime(prev) + ").";
+  $("restNote").className = elapsed > 180 ? "rest" : "muted";
+}
+
+// ---------- Render workout ----------
+function renderWorkout() {
+  refreshSelect();
+  const w = state.current;
+  if (!w) {
+    $("startCard").classList.remove("hidden");
+    $("workoutArea").classList.add("hidden");
+    $("sessionInfo").textContent = "No workout running.";
+    clearInterval(timerInterval); timerInterval = null;
+    return;
+  }
+  $("startCard").classList.add("hidden");
+  $("workoutArea").classList.remove("hidden");
+  $("sessionInfo").textContent = "Started " + fmtTime(w.startedAt) + " on " + w.date;
+  if (!timerInterval) timerInterval = setInterval(tickRest, 500);
+  tickRest();
+  const last = lastSetTime();
+  $("lastSetBadge").textContent = last ? "last set " + fmtTime(last) : "no sets yet";
+
+  $("exerciseList").innerHTML = w.exercises.map((ex, i) => {
+    const lib = allExercises().find(e => e.name === ex.name) || {};
+    const cues = lib.cues && lib.cues.length
+      ? `<details><summary>Form tips</summary><ul class="cue">${lib.cues.map(c => `<li>${esc(c)}</li>`).join("")}</ul></details>` : "";
+    const sets = ex.sets.map((s, j) => {
+      const rest = s.restSeconds != null ? `<span class="rest">${fmtDur(s.restSeconds)} rest</span>` : `<span class="muted">first</span>`;
+      return `<div class="set-line">
+        <span class="badge">${j + 1}</span>
+        <span>${s.weight} kg</span>
+        <span>${s.reps} reps</span>
+        <span class="muted">${fmtTime(s.time)} · ${rest}</span>
+        <button class="ghost small danger" onclick="deleteSet(${i},${j})">✕</button>
+      </div>`;
+    }).join("") || `<p class="muted">No sets yet.</p>`;
+
+    return `<div class="card" data-ex="${i}">
+      <h2>${esc(ex.name)} <button class="ghost small danger" onclick="removeExercise(${i})">Remove</button></h2>
+      ${cues}
+      <div style="height:8px"></div>
+      <div class="row" style="margin-bottom:8px">
+        <div><label>kg</label><input class="num inpW" type="number" inputmode="decimal" step="0.5" value="${lastVal(ex.name, "weight")}"></div>
+        <div><label>reps</label><input class="num inpR" type="number" inputmode="numeric" value="${lastVal(ex.name, "reps")}"></div>
+        <button class="primary" style="width:auto;flex:1" onclick="logSet(${i})">Log set</button>
+      </div>
+      ${sets}
+    </div>`;
+  }).join("") || `<p class="muted">Add an exercise to begin.</p>`;
+}
+
+function lastVal(name, key) {
+  for (const w of state.history) for (const e of w.exercises)
+    if (e.name === name && e.sets.length) return e.sets[e.sets.length - 1][key];
+  return "";
+}
+
+// ---------- History ----------
+function avgRest(w) {
+  const r = []; w.exercises.forEach(e => e.sets.forEach(s => { if (s.restSeconds != null) r.push(s.restSeconds); }));
+  return r.length ? fmtDur(r.reduce((a, b) => a + b, 0) / r.length) : "n/a";
+}
+function renderHistory() {
+  const h = state.history;
+  $("historyList").innerHTML = h.length ? h.map(w => {
+    const total = w.exercises.reduce((n, e) => n + e.sets.length, 0);
+    const mins = w.endedAt ? Math.round((new Date(w.endedAt) - new Date(w.startedAt)) / 60000) : "?";
+    const rows = w.exercises.map(e => `<tr><td>${esc(e.name)}</td><td>${e.sets.map(s => `${s.weight}×${s.reps}`).join(", ")}</td></tr>`).join("");
+    return `<details style="margin-bottom:10px"><summary>${w.date} · ${total} sets · ${mins} min</summary>
+      <table><tbody>${rows}</tbody></table>
+      <p class="muted">Avg rest between sets: ${avgRest(w)}</p></details>`;
+  }).join("") : "No workouts yet.";
+
+  const best = {};
+  h.forEach(w => w.exercises.forEach(e => e.sets.forEach(s => {
+    const est = s.weight * (1 + s.reps / 30);
+    if (!best[e.name] || est > best[e.name].est) best[e.name] = { est, w: s.weight, r: s.reps };
+  })));
+  const names = Object.keys(best);
+  $("prList").innerHTML = names.length ? `<table><thead><tr><th>Exercise</th><th>Best set</th><th>Est. 1RM</th></tr></thead><tbody>${
+    names.map(n => `<tr><td>${esc(n)}</td><td>${best[n].w} kg × ${best[n].r}</td><td>${best[n].est.toFixed(1)} kg</td></tr>`).join("")
+  }</tbody></table>` : "No data yet.";
+}
+
+$("exportCsvBtn").onclick = () => {
+  const rows = [["workout_date","exercise","set","weight_kg","reps","set_time","rest_seconds"]];
+  state.history.slice().reverse().forEach(w => w.exercises.forEach(e => e.sets.forEach((s, i) => {
+    rows.push([w.date, e.name, i + 1, s.weight, s.reps, s.time, s.restSeconds ?? ""]);
+  })));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "gym-log.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+// ---------- Sync queue ----------
+// Every set goes into state.pending first. It is removed only after a send succeeds,
+// so anything logged offline is kept and sent later.
+function queueSet(payload) {
+  state.pending.push(payload);
+  save();
+  flushQueue();
+}
+
+async function flushQueue() {
+  if (!state.syncUrl || state.pending.length === 0) { updateSyncStatus(); return; }
+  if (!navigator.onLine) { updateSyncStatus(); return; }
+  while (state.pending.length) {
+    const item = state.pending[0];
+    try {
+      // no-cors: the response is opaque, so a successful fetch means the request was delivered.
+      await fetch(state.syncUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(item) });
+      state.pending.shift();
+      save();
+    } catch (e) {
+      break; // still offline or blocked; keep the rest queued
+    }
+  }
+  updateSyncStatus();
+}
+
+function updateSyncStatus() {
+  const n = state.pending.length;
+  let msg;
+  if (!state.syncUrl) msg = "Sync off. Sets are saved on this device only.";
+  else if (n === 0) msg = "All sets synced.";
+  else if (!navigator.onLine) msg = n + " set(s) queued. Will send when you're back online.";
+  else msg = n + " set(s) waiting to send.";
+  if ($("syncStatus")) $("syncStatus").textContent = msg;
+}
+
+window.addEventListener("online", () => { flushQueue(); toast("Back online. Syncing..."); });
+window.addEventListener("offline", () => updateSyncStatus());
+
+$("saveSyncBtn").onclick = () => {
+  state.syncUrl = $("syncUrl").value.trim(); save(); flushQueue(); toast("Saved");
+};
+$("flushBtn").onclick = () => { state.syncUrl = $("syncUrl").value.trim(); save(); flushQueue(); };
+$("testSyncBtn").onclick = () => {
+  state.syncUrl = $("syncUrl").value.trim(); save();
+  if (!state.syncUrl) { toast("Paste a URL first"); return; }
+  queueSet({ timestamp: new Date().toISOString(), workoutDate: todayStr(), exercise: "TEST", set: 1, weight: 0, reps: 0, setTime: new Date().toISOString(), restSeconds: "" });
+  toast("Test row queued");
+};
+
+// ---------- Settings ----------
+$("addCustomBtn").onclick = () => {
+  const name = $("newExName").value.trim();
+  const cue = $("newExCue").value.trim();
+  if (!name) { toast("Enter a name"); return; }
+  if (allExercises().some(e => e.name.toLowerCase() === name.toLowerCase())) { toast("Already exists"); return; }
+  state.exercises.push({ name, cues: cue ? [cue] : [] });
+  save(); refreshSelect(); toast("Exercise added");
+  $("newExName").value = ""; $("newExCue").value = "";
+};
+$("wipeBtn").onclick = () => {
+  if (!confirm("Erase all workouts, settings and queued sets on this device? This cannot be undone.")) return;
+  state = { exercises: [], history: [], current: null, syncUrl: "", pending: [] };
+  save(); renderWorkout(); showTab("Workout"); toast("Data erased");
+};
+
+// ---------- Service worker ----------
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
+// ---------- Init ----------
+refreshSelect();
+renderWorkout();
+updateSyncStatus();
+flushQueue();
+</script>
+</body>
+</html>
