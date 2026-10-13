@@ -1107,16 +1107,24 @@ async function pullFromSheet() {
   if (!state.syncUrl) { updateSyncStatus(); return; }
   if (!navigator.onLine) { updateSyncStatus(); return; }
   setStatus("Syncing…");
+  await flushQueue();
+  let d;
   try {
-    await flushQueue();
     const r = await fetch(state.syncUrl + "?token=" + encodeURIComponent(state.token || ""), { cache: "no-store" });
-    const d = await r.json();
-    if (d.error) { setStatus("Sheet says: " + d.error + ". Check the token matches the script."); return; }
+    const text = await r.text();
+    try { d = JSON.parse(text); }
+    catch (e) { setStatus("The sheet replied, but not with data. Check the URL is the /exec address from your latest deployment. Showing saved data."); return; }
+  } catch (e) {
+    setStatus("This browser couldn't reach Google (" + e.message + "). Try Chrome or Edge, or turn off ad blockers for this page. Showing saved data.");
+    return;
+  }
+  if (d.error) { setStatus("Sheet says: " + d.error + ". Check the token matches the script."); return; }
+  try {
     applyRemote(d);
     if (state.current) { renderHome(); renderHistory(); renderGoals(); } else renderAll();
     updateSyncStatus();
   } catch (e) {
-    setStatus("Couldn't reach the sheet. Showing saved data.");
+    setStatus("Got the data from the sheet but couldn't show it: " + e.message + ". Showing saved data.");
   }
 }
 
