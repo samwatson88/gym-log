@@ -257,6 +257,8 @@ nav.bottom svg { width: 22px; height: 22px; }
         <div><label>Weight increase (kg)</label><input id="incKg" type="number" inputmode="decimal" step="0.5"></div>
         <div><label>Body weight (kg)</label><input id="bodyWeight" type="number" inputmode="decimal" step="0.5"></div>
         <div><label>Appearance</label><select id="themeSel"><option value="light">Light</option><option value="dark">Dark</option></select></div>
+        <div><label>Rest-end voice</label><select id="cheerSel"><option value="off">Off</option><option value="on">On</option></select></div>
+        <div><label>Cheer phrase</label><input id="cheerText" placeholder="Let's go!"></div>
       </div>
     </div>
 
@@ -265,6 +267,17 @@ nav.bottom svg { width: 22px; height: 22px; }
       <div class="row">
         <input id="newExName" placeholder="e.g. Cable Fly" style="flex:1">
         <button class="ghost" id="addCustomBtn">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Rest-end clip</h2>
+      <p class="muted">Record a short clip of your own voice (a few seconds, MP3 or M4A). It plays when the rest timer ends, if Rest-end voice is on. It's kept on this device and included in backups.</p>
+      <input type="file" id="clipFile" accept="audio/*" style="padding:8px">
+      <p class="muted" id="clipStatus" style="margin-top:8px"></p>
+      <div class="row" style="margin-top:8px">
+        <button class="ghost small" id="clipPreview">Preview</button>
+        <button class="ghost small danger" id="clipRemove">Remove</button>
       </div>
     </div>
 
@@ -435,6 +448,64 @@ const CUES = {
   "Lateral Raise": ["Lead with the elbows, slight bend.", "Raise to shoulder height, no higher.", "Control the way down."]
 };
 
+
+// Form tips for the rest of the programme and substitute exercises
+Object.assign(CUES, {
+  "Incline DB Press": ["Set the bench to about 30 to 45 degrees.", "Shoulder blades pulled back and down.", "Lower the dumbbells to the sides of your upper chest.", "Press up and slightly in, without clanking them together."],
+  "Seated DB Shoulder Press": ["Back supported, core braced.", "Dumbbells start at shoulder height, palms forward or in.", "Press straight up without arching your lower back.", "Lower under control to shoulder height."],
+  "Cable Fly / Pec Deck": ["Keep a slight bend in the elbows, fixed through the rep.", "Bring the hands together in an arc in front of your chest.", "Squeeze for a second at the middle.", "Let the chest stretch on the way back, don't let the weight slam."],
+  "Triceps Pushdown": ["Elbows pinned to your sides.", "Push the bar down until your arms are straight.", "Only your forearms move.", "Control the return until the triceps stretch."],
+  "Overhead Triceps Extension": ["Keep elbows close to your head, pointing up.", "Lower the weight behind your head until you feel a stretch.", "Extend the arms without flaring the elbows.", "Keep your ribs down and your back flat."],
+  "Seated Cable Row": ["Sit tall with a slight bend in the knees.", "Pull the handle to your lower ribs, chest up.", "Squeeze the shoulder blades together at the end.", "Return slowly without rounding your back."],
+  "Cable External Rotation": ["Elbow tucked against your side at 90 degrees.", "Rotate the forearm outward, keeping the elbow still.", "Use a light weight and move slowly.", "Return with control."],
+  "Cable Curl": ["Elbows stay by your sides.", "Curl until the forearms are near vertical.", "Don't swing your body to lift the weight.", "Lower slowly."],
+  "DB Pullover": ["Lie along the bench with your hips low.", "Keep a slight bend in the elbows.", "Lower the dumbbell in an arc behind your head until you feel the lats stretch.", "Pull it back over the chest using your lats."],
+  "Seated Leg Curl": ["Pad sits just above your heels.", "Curl the heels back towards your glutes.", "Keep your hips pressed into the seat.", "Lower slowly, don't let the stack slam."],
+  "Barbell side bends": ["Hold a light bar on your back, feet hip width.", "Bend straight sideways, not forward or back.", "Pause at the bottom, then return to the middle.", "Keep the movement slow and controlled."],
+  "Abs": ["Brace your core and keep your lower back controlled.", "Move through the trunk, not by pulling with your neck.", "Exhale on the crunch, control the return.", "Stop when your form starts to break down."],
+  "Incline DB/Barbell Press": ["Set the bench to about 30 to 45 degrees.", "Shoulder blades pulled back and down.", "Lower to the upper chest with control.", "Press up in a slight arc, elbows at about 45 degrees."],
+  "Flat DB or Machine Press": ["Shoulder blades back and down, feet flat.", "Lower with control to chest level.", "Press up without bouncing off the chest.", "Keep wrists stacked over elbows."],
+  "Cable Lateral Raise": ["Stand side-on to the cable, holding it in the far hand.", "Raise the arm out to shoulder height, slight elbow bend.", "Lead with the elbow, not the hand.", "Lower slowly without letting the weight pull you."],
+  "Rear Delt Fly": ["Hinge forward with a flat back.", "Lead with your elbows, arms slightly bent.", "Raise out to the sides to shoulder height.", "Keep your neck relaxed and go light."],
+  "Close-Grip Bench / Skull Crushers": ["Close grip for bench, hands about shoulder width, elbows tucked.", "For skull crushers, lower the bar to your forehead.", "Keep your upper arms still.", "Press back up without flaring the elbows."],
+  "Rope Triceps Pushdown": ["Elbows pinned to your sides.", "Pull the rope down and split the ends at the bottom.", "Only the forearms move.", "Control the return."],
+  "Suitcase Carry": ["Hold one heavy weight in one hand.", "Stand tall, shoulders level, ribs down.", "Walk with short, controlled steps.", "Switch sides after each set."],
+  "Hammer Curl": ["Palms face each other throughout.", "Keep elbows still by your sides.", "Curl without swinging your body.", "Lower slowly to a full stretch."],
+  "Leg Extension": ["Set the pad just above your ankles.", "Extend the knees until the legs are straight but not locked.", "Pause briefly at the top.", "Lower slowly."],
+  "Leg Curl": ["Lie face down, pad just above your heels.", "Curl the heels towards your glutes.", "Keep your hips down on the bench.", "Lower slowly."],
+  "Dumbbell Bench Press": ["Dumbbells start at chest level, elbows at about 45 degrees.", "Lower with control until you feel a stretch in the chest.", "Press up and slightly together.", "Keep feet flat and shoulder blades pinned."],
+  "Machine Chest Press": ["Set the seat so the handles line up with mid-chest.", "Keep your shoulder blades back against the pad.", "Press without locking out hard.", "Lower slowly."],
+  "Floor Press": ["Lie on the floor with the weight at chest level.", "Pause when your upper arms touch the floor.", "Press up with elbows at about 45 degrees.", "Keep your shoulder blades pulled back."],
+  "Incline Barbell Press": ["Bench at about 30 to 45 degrees.", "Unrack with arms straight over the upper chest.", "Lower the bar to the upper chest, elbows tucked.", "Press back up in a slight arc."],
+  "Machine Incline Press": ["Set the seat so the handles are at upper chest height.", "Keep your back flat against the pad.", "Press without locking out.", "Lower with control."],
+  "Goblet Squat": ["Hold a dumbbell or kettlebell close to your chest.", "Feet about shoulder width, toes slightly out.", "Sit between your hips, chest tall.", "Drive through mid-foot to stand."],
+  "Hack Squat": ["Feet shoulder width on the platform.", "Lower until your knees reach about 90 degrees.", "Keep your back pressed to the pad.", "Press through the whole foot to stand."],
+  "Trap Bar Deadlift": ["Stand in the middle of the bar, feet hip width.", "Hips low, chest up, grip the handles.", "Push the floor away and keep the bar close.", "Lock out with your glutes, don't lean back."],
+  "Rack Pull": ["Set the bar at knee height in the rack.", "Back flat, hips between squat and hinge.", "Push through the floor and stand tall.", "Lower under control."],
+  "Good Morning": ["Bar on your upper back, light weight.", "Soft knees, hinge at the hips.", "Keep your back flat and push your hips back.", "Stop when you feel a hamstring stretch."],
+  "Cable Pull-through": ["Stand facing away from the cable, rope between your legs.", "Hinge at the hips, keeping your back flat.", "Drive your hips forward to stand, squeezing the glutes.", "Don't use your arms to lift."],
+  "Chin-up": ["Underhand grip, shoulder width.", "Pull your chest towards the bar.", "Get your chin over the bar.", "Lower slowly to a full hang."],
+  "Assisted Pull-up": ["Set the assistance so you can do the reps with control.", "Pull the shoulder blades down first.", "Chin clears the bar.", "Lower slowly."],
+  "Straight-arm Pulldown": ["Stand facing the cable with arms straight.", "Keep a slight bend in the elbows.", "Pull the bar down in an arc to your thighs.", "Squeeze your lats at the bottom."],
+  "Chest-supported Row": ["Lie chest-down on an incline bench.", "Pull the handles or dumbbells to your sides.", "Squeeze the shoulder blades together.", "Lower slowly."],
+  "Dumbbell Row": ["One hand and knee on the bench, back flat.", "Pull the dumbbell to your hip, elbow close to your body.", "Pause at the top.", "Lower until the lat is stretched."],
+  "Walking Lunge": ["Step forward, lowering until both knees are about 90 degrees.", "Keep your torso upright.", "Push through the front heel to step forward again.", "Keep each step controlled."],
+  "Reverse Lunge": ["Step back, lowering the back knee towards the floor.", "Keep your front knee over your ankle.", "Push through the front heel to return.", "Keep your torso tall."],
+  "Machine Shoulder Press": ["Set the seat so the handles start at shoulder height.", "Press up without arching your back.", "Lower with control.", "Keep your wrists straight."],
+  "Landmine Press": ["Hold the end of the bar at shoulder height.", "Press up and forward at a slight angle.", "Keep your core braced.", "Lower with control."],
+  "Lying Leg Curl": ["Lie face down, pad just above your heels.", "Curl the heels towards your glutes.", "Keep your hips pressed down.", "Lower slowly."],
+  "Machine Lateral Raise": ["Set the pads against your upper arms.", "Raise to shoulder height, elbows slightly bent.", "Lower slowly.", "Don't swing your body."],
+  "Dumbbell Fly": ["Lie on a flat bench, dumbbells above your chest.", "Keep a slight bend in the elbows throughout.", "Lower in an arc until you feel a chest stretch.", "Bring them back together over your chest."],
+  "Incline DB Fly": ["Set the bench to about 30 degrees.", "Keep a slight bend in the elbows.", "Lower in an arc until you feel a stretch.", "Squeeze the upper chest to return."],
+  "Dumbbell Curl": ["Keep elbows still by your sides.", "Rotate your wrists outward as you curl.", "Pause briefly at the top.", "Lower to a full stretch."],
+  "Band Pull-apart": ["Hold the band at shoulder height, arms straight.", "Pull the band apart by squeezing the shoulder blades back.", "Keep your arms straight and ribs down.", "Return with control."],
+  "Band External Rotation": ["Elbow tucked against your side at 90 degrees.", "Rotate the forearm outward slowly.", "Keep the elbow still.", "Return with control."],
+  "Cable Crunch": ["Kneel facing the cable, rope behind your head.", "Crunch by bending the spine, not by pulling with your arms.", "Exhale on the way down.", "Return slowly."],
+  "Hanging Leg Raise": ["Hang from a bar with a controlled grip.", "Raise your legs by tilting the pelvis, avoid swinging.", "Lower slowly.", "If you need to swing to keep going, stop."],
+  "Dumbbell Side Bend": ["Hold one dumbbell at your side.", "Bend straight sideways, slowly.", "Pause at the bottom.", "Return to standing with control."],
+  "Cable Chest Press": ["Set the handles at mid-chest height.", "Press forward, keeping your shoulder blades back.", "Return with control.", "Keep your back neutral."]
+});
+
 // ---------- Storage ----------
 const KEY = "ascend.v4";
 const OLD_KEYS = ["gymlog.v3", "gymlog.v2"];
@@ -480,6 +551,8 @@ state.activities = state.activities || [];
 state.bodyWeight = state.bodyWeight || 80;
 state.goals = state.goals || [];
 state.theme = state.theme || "light";
+state.cheer = !!state.cheer;
+state.cheerText = state.cheerText || "Let's go!";
 applyTheme();
 state.program.days.forEach(d => { if (!d.warmup) d.warmup = defaultWarmup(d.name); });
 
@@ -658,6 +731,7 @@ function alertRest() {
   } catch (e) {}
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   toast("Rest done. Next set.");
+  playCheer();
 }
 
 let restAlerted = true;
@@ -686,6 +760,7 @@ function logSet(i) {
   const warmup = card.querySelector(".inpWu").checked;
   if (reps <= 0) { toast("Enter reps first"); return; }
   ensureAudio();
+  unlockAudio();
   const now = new Date();
   const prev = lastSetTime();
   const restSeconds = prev ? Math.round((now - new Date(prev)) / 1000) : null;
@@ -777,13 +852,14 @@ $("finishBtn").onclick = () => {
     : sc.progressed === sc.evaluated ? "Every lift matched or beat last time. Strong session."
     : sc.progressed === 0 ? "No lifts beat last time. Fine for one session, but watch it next week."
     : `${sc.progressed} of ${sc.evaluated} lifts matched or beat last time.`;
+  const ex = workoutExplain(w, sc);
   $("finishBody").innerHTML = `
     <div class="grid2" style="margin-bottom:10px">
       <div><div class="muted">Workout score</div><div class="big">${sc.score}<span class="muted" style="font-size:16px"> / 100</span></div></div>
       <div><div class="muted">Est. calories</div><div class="big">${kcal}</div><div class="muted" style="font-size:12px">${mins} min at ${state.bodyWeight || 80} kg</div></div>
     </div>
     <p>${esc(verdict)}</p>
-    <ul class="cue">${sc.details.map(d => `<li><b>${esc(d.name)}</b>: ${esc(d.top)}${d.delta ? " · " + esc(d.delta) : ""}${d.pb ? " · <span style='color:var(--steel-light)'>new PB</span>" : ""}</li>`).join("")}</ul>`;
+    <ul class="cue">${sc.details.map(d => `<li><b>${esc(d.name)}</b>: ${esc(d.top)}${d.delta ? " · " + esc(d.delta) : ""}${d.pb ? " · <span style='color:var(--steel-light)'>new PB</span>" : ""}</li>`).join("")}</ul>${explainBlock(ex)}`;
   state.current = null;
   save();
   $("finishModal").classList.remove("hidden");
@@ -1061,6 +1137,8 @@ function fillSettings() {
   $("incKg").value = state.increment;
   $("bodyWeight").value = state.bodyWeight;
   $("themeSel").value = state.theme || "light";
+  $("cheerSel").value = state.cheer ? "on" : "off";
+  $("cheerText").value = state.cheerText || "Let's go!";
   updateSyncStatus();
 }
 
@@ -1391,7 +1469,7 @@ function renderHome() {
         <div><div class="muted">Days trained</div><div class="big">${thisWeek.days} <span class="muted" style="font-size:16px">/ ${thisWeek.target}</span></div></div>
         <div><div class="muted">Weekly score</div><div class="big">${thisWeek.score}</div></div>
       </div>
-      <p class="muted" style="font-size:12px;margin-top:8px">Score: 60% days trained against your programme, 40% lifts that matched or beat last week.</p>
+      ${weekExplainHtml()}
     </div>
     <div class="card"><h2>Personal bests (est. 1RM, kg)</h2><div class="pbs">${pbs}</div></div>
     <div class="card"><h2>Weekly score, last 13 weeks</h2><div class="chart">${chart}</div></div>
@@ -1511,13 +1589,16 @@ function download(blob, name) {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-function exportAll() {
+async function exportAll() {
+  const b = await loadClip().catch(() => null);
+  const restClip = b ? await blobToDataUrl(b) : null;
   const data = {
     app: "Ascend", version: 4, exportedAt: new Date().toISOString(),
     programme: state.program,
     history: state.history,
     activities: state.activities,
     goals: state.goals,
+    restClip,
     settings: { restSeconds: state.restSeconds, increment: state.increment, bodyWeight: state.bodyWeight, custom: state.custom }
   };
   download(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `ascend-backup-${localDate()}.json`);
@@ -1590,6 +1671,7 @@ $("restoreBtn").onclick = () => {
   });
   state.activities.sort((a, b) => b.date.localeCompare(a.date));
 
+  if (d.restClip) fetch(d.restClip).then(r => r.blob()).then(saveClip).then(refreshClip).catch(() => {});
   (d.goals || []).forEach(g => { if (!state.goals.some(x => x.id === g.id)) state.goals.push(g); });
   if (d.programme && d.programme.days) {
     state.program = d.programme;
@@ -1954,6 +2036,165 @@ function showMonthDay(ds) {
 $("calPrev").onclick = () => { calMonth = shiftMonth(calMonth, -1); renderMonth(); $("monthDetail").innerHTML = ""; };
 $("calNext").onclick = () => { calMonth = shiftMonth(calMonth, 1); renderMonth(); $("monthDetail").innerHTML = ""; };
 
+
+// ---------- Score explanations ----------
+function workoutExplain(w, sc) {
+  const lines = [], tips = [];
+  const planned = w.exercises.filter(e => e.planned);
+  const plannedTotal = planned.reduce((n, e) => n + e.planned.sets, 0);
+  const done = planned.reduce((n, e) => n + Math.min(e.sets.filter(s => !isWarm(s.warmup)).length, e.planned.sets), 0);
+  if (plannedTotal) lines.push(`Sets: ${done} of ${plannedTotal} planned working sets (${Math.round(done / plannedTotal * 100)}%). This is half the score.`);
+  else lines.push("Sets: this programme had no planned sets, so this half is based on the sets you logged.");
+  if (sc.evaluated) lines.push(`Lifts: ${sc.progressed} of ${sc.evaluated} matched or beat their estimated 1RM from last time. This is the other half.`);
+  else lines.push("Lifts: there's no earlier session to compare with yet, so this half counts as neutral.");
+
+  planned.forEach(e => {
+    const work = e.sets.filter(s => !isWarm(s.warmup)).length;
+    if (work === 0) tips.push(`You didn't log ${e.name}. If it doesn't fit today, swap it for a substitute rather than skipping it.`);
+    else if (work < e.planned.sets) tips.push(`${e.name}: ${work} of ${e.planned.sets} sets. Finish every planned set, even if the last one is lighter.`);
+  });
+  sc.details.forEach(d => {
+    if (d.delta && d.delta.startsWith("-")) tips.push(`${d.name}: lighter than last time (${d.delta.replace(" vs last time", "")}). Repeat last time's weight first, then add weight once you hit the top of the rep range.`);
+    else if (d.delta === "same weight as last time") tips.push(`${d.name}: same weight as last time. Aim for one more rep on your top set next time.`);
+  });
+  if (!tips.length) tips.push("Nothing held this session back. Next time, aim for one more rep on a top set or 2.5 kg on one lift.");
+  return { lines, tips: tips.slice(0, 4) };
+}
+
+function explainBlock(ex) {
+  return `<div style="margin-top:12px"><b>Why this score</b>
+    <ul class="cue">${ex.lines.map(l => `<li>${esc(l)}</li>`).join("")}</ul>
+    <b>How to get it higher</b>
+    <ul class="cue">${ex.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>`;
+}
+
+function weekExplainHtml() {
+  const sc = weekScore(weekStartOf(localDate()));
+  const pct = Math.round(sc.days / sc.target * 100);
+  const lines = [`Days trained: ${sc.days} of ${sc.target} (${pct}%). Worth 60%.`];
+  if (sc.evaluated) lines.push(`Lifts: ${sc.progressed} of ${sc.evaluated} matched or beat last week. Worth 40%.`);
+  else lines.push("Lifts: nothing to compare yet this week, so this part counts as neutral.");
+  const tips = [];
+  if (sc.days < sc.target) tips.push(`Train ${sc.target - sc.days} more day${sc.target - sc.days === 1 ? "" : "s"} to reach full consistency.`);
+  if (sc.evaluated && sc.progressed < sc.evaluated) tips.push("For lifts that dipped, match last week's top weight first, then add reps before adding weight.");
+  if (!tips.length) tips.push("Strong week. Keep the rhythm.");
+  return `<div style="margin-top:8px"><b class="muted" style="font-size:12px">Why this score</b>
+    <ul class="cue" style="font-size:13px">${lines.map(l => `<li>${esc(l)}</li>`).join("")}</ul>
+    <b class="muted" style="font-size:12px">How to get it higher</b>
+    <ul class="cue" style="font-size:13px">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>`;
+}
+
+// ---------- Rest-end cheer (device voice, your own phrase) ----------
+function cheer() {
+  if (!state.cheer || !("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(state.cheerText || "Let's go!");
+  const voices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+  const pick = voices.find(v => /male|daniel|george|james|david|mark/i.test(v.name)) || voices[0];
+  if (pick) u.voice = pick;
+  u.pitch = 0.6; u.rate = 1.05; u.volume = 1;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+$("cheerSel").onchange = e => { state.cheer = e.target.value === "on"; save(); toast(state.cheer ? "Rest-end cheer on" : "Rest-end cheer off"); };
+$("cheerText").onchange = e => { state.cheerText = e.target.value.trim() || "Let's go!"; save(); toast("Phrase saved"); };
+
+
+// ---------- Rest-end clip (your own recording, stored on this device) ----------
+const CLIP_DB = "ascend-audio";
+function openClipDb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(CLIP_DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("clips");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function saveClip(blob) {
+  const db = await openClipDb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("clips", "readwrite");
+    tx.objectStore("clips").put(blob, "restEnd");
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function loadClip() {
+  const db = await openClipDb();
+  return new Promise((res, rej) => {
+    const r = db.transaction("clips").objectStore("clips").get("restEnd");
+    r.onsuccess = () => res(r.result || null);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function deleteClip() {
+  const db = await openClipDb();
+  return new Promise(res => {
+    const tx = db.transaction("clips", "readwrite");
+    tx.objectStore("clips").delete("restEnd");
+    tx.oncomplete = () => res();
+  });
+}
+function blobToDataUrl(b) {
+  return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
+}
+
+let clipUrl = null, clipEl = null;
+async function refreshClip() {
+  const b = await loadClip().catch(() => null);
+  if (clipUrl) { URL.revokeObjectURL(clipUrl); clipUrl = null; }
+  if (b) clipUrl = URL.createObjectURL(b);
+  $("clipStatus").textContent = b ? "Your clip is saved on this device." : "No clip saved. The device voice will be used.";
+  $("clipRemove").classList.toggle("hidden", !b);
+  $("clipPreview").classList.toggle("hidden", !b);
+}
+
+// Browsers (especially iOS) only let audio play from a timer if it was first started by a tap.
+// Logging a set is a tap, so we unlock the player then.
+function unlockAudio() {
+  if (!clipEl) clipEl = new Audio();
+  if (clipUrl) clipEl.src = clipUrl;
+  clipEl.muted = true;
+  clipEl.play().then(() => { clipEl.pause(); clipEl.muted = false; }).catch(() => {});
+}
+
+function playCheer() {
+  if (!state.cheer) return;
+  if (clipUrl) {
+    if (!clipEl) clipEl = new Audio();
+    clipEl.muted = false;
+    clipEl.src = clipUrl;
+    clipEl.currentTime = 0;
+    clipEl.play().catch(() => cheer());
+  } else {
+    cheer();
+  }
+}
+
+$("clipFile").onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.size > 1.5 * 1024 * 1024) { toast("Keep it under 1.5 MB. A few seconds is enough"); e.target.value = ""; return; }
+  await saveClip(f);
+  e.target.value = "";
+  await refreshClip();
+  toast("Clip saved");
+};
+$("clipPreview").onclick = () => {
+  if (!clipUrl) return;
+  if (!clipEl) clipEl = new Audio();
+  clipEl.muted = false;
+  clipEl.src = clipUrl;
+  clipEl.currentTime = 0;
+  clipEl.play().catch(() => toast("Tap Preview again to play"));
+};
+$("clipRemove").onclick = () => {
+  askConfirm("Remove your rest-end clip?", "Remove", async () => {
+    await deleteClip();
+    await refreshClip();
+    toast("Clip removed");
+  });
+};
+
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
@@ -1962,6 +2203,7 @@ if ("serviceWorker" in navigator) {
 // ---------- Init ----------
 renderAll();
 updateSyncStatus();
+refreshClip();
 if (state.syncUrl) pullFromSheet();
 </script>
 </body>
