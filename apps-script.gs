@@ -8,12 +8,22 @@ const ACT_COLS = ["id", "date", "type", "minutes", "speed", "distance", "calorie
 const LOG_COLS = ["timestamp", "workout_date", "exercise", "set", "weight_kg", "reps", "set_time", "rest_seconds", "session_id", "day_name", "rir", "warmup"];
 
 function doGet(e) {
-  if (!e.parameter || e.parameter.token !== TOKEN) return out({ error: "unauthorised" });
+  const data = getData(e);
+  const cb = e.parameter && e.parameter.callback;
+  if (cb && /^[A-Za-z_][A-Za-z0-9_]*$/.test(cb)) {
+    return ContentService.createTextOutput(cb + "(" + JSON.stringify(data) + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return out(data);
+}
+
+function getData(e) {
+  if (!e.parameter || e.parameter.token !== TOKEN) return { error: "unauthorised" };
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sets = readRows(ss.getSheets()[0]).filter(r => r.exercise && r.exercise !== "TEST");
   const program = readRows(programmeSheet(ss)).filter(r => r.day && r.exercise);
   const activities = readRows(activitiesSheet(ss)).filter(r => r.id);
-  return out({ sets: sets, program: program, activities: activities });
+  return { sets: sets, program: program, activities: activities };
 }
 
 function doPost(e) {

@@ -1103,6 +1103,21 @@ function applyRemote(d) {
   save();
 }
 
+// Reads the sheet with a script tag rather than fetch(), so browsers that block cross-site
+// requests can still read it. The sheet answers by calling back with the data.
+function jsonpGet(url) {
+  return new Promise((resolve, reject) => {
+    const name = "ascendCb" + Math.random().toString(36).slice(2);
+    const s = document.createElement("script");
+    const finish = () => { delete window[name]; s.remove(); clearTimeout(timer); };
+    const timer = setTimeout(() => { finish(); reject(new Error("the sheet took too long to reply")); }, 20000);
+    window[name] = data => { finish(); resolve(data); };
+    s.onerror = () => { finish(); reject(new Error("the request was blocked")); };
+    s.src = url + "&callback=" + name;
+    document.head.appendChild(s);
+  });
+}
+
 async function pullFromSheet() {
   if (!state.syncUrl) { updateSyncStatus(); return; }
   if (!navigator.onLine) { updateSyncStatus(); return; }
@@ -1110,15 +1125,12 @@ async function pullFromSheet() {
   await flushQueue();
   let d;
   try {
-    const r = await fetch(state.syncUrl + "?token=" + encodeURIComponent(state.token || ""), { cache: "no-store" });
-    const text = await r.text();
-    try { d = JSON.parse(text); }
-    catch (e) { setStatus("The sheet replied, but not with data. Check the URL is the /exec address from your latest deployment. Showing saved data."); return; }
+    d = await jsonpGet(state.syncUrl + "?token=" + encodeURIComponent(state.token || ""));
   } catch (e) {
-    setStatus("This browser couldn't reach Google (" + e.message + "). Try Chrome or Edge, or turn off ad blockers for this page. Showing saved data.");
+    setStatus("This browser couldn't reach Google (" + e.message + "). Showing saved data.");
     return;
   }
-  if (d.error) { setStatus("Sheet says: " + d.error + ". Check the token matches the script."); return; }
+  if (!d || d.error) { setStatus("Sheet says: " + ((d && d.error) || "no data") + ". Check the token matches the script."); return; }
   try {
     applyRemote(d);
     if (state.current) { renderHome(); renderHistory(); renderGoals(); } else renderAll();
