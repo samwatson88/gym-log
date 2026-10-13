@@ -1209,7 +1209,7 @@ function parseFitNotesCsv(text) {
   const iDate = col("date"), iEx = col("exercise"), iW = col("weight"), iR = col("reps");
   if (iDate < 0 || iEx < 0 || iR < 0) return { error: "Couldn't find Date, Exercise and Reps columns. Check this is the FitNotes CSV export." };
   const useLb = head.some(h => /lb/.test(h)) && !head.some(h => /kg/.test(h));
-  const factor = useLb ? 0.45359237 : 1;
+  const iUnit = col("weight unit"), iWS = col("working set");
   const existing = new Set(state.history.map(w => w.id));
   const counter = {}, rows = [], sessions = new Set();
   let skipped = 0, from = null, to = null, seq = 0;
@@ -1220,6 +1220,9 @@ function parseFitNotesCsv(text) {
     if (!dateStr || !name || !(reps > 0)) continue;
     const sid = "fitnotes-" + dateStr;
     if (existing.has(sid)) { skipped++; continue; }
+    const unit = iUnit >= 0 ? (line[iUnit] || "").trim().toLowerCase() : "";
+    const factor = unit ? (unit.includes("lb") ? 0.45359237 : 1) : (useLb ? 0.45359237 : 1);
+    const warm = iWS >= 0 && /^(0|no|false)$/i.test((line[iWS] || "").trim());
     const weight = Math.round((parseFloat(line[iW]) || 0) * factor * 100) / 100;
     const key = dateStr + "|" + name;
     counter[key] = (counter[key] || 0) + 1;
@@ -1227,7 +1230,7 @@ function parseFitNotesCsv(text) {
     const [y, m, d] = dateStr.split("-").map(Number);
     const t = new Date(Date.UTC(y, m - 1, d, 12, 0, 0) + seq * 1000).toISOString();
     rows.push({ timestamp: t, workoutDate: dateStr, exercise: name, set: counter[key], weight, reps,
-      setTime: t, restSeconds: "", sessionId: sid, dayName: "FitNotes import", rir: "", warmup: "" });
+      setTime: t, restSeconds: "", sessionId: sid, dayName: "FitNotes import", rir: "", warmup: warm ? "yes" : "" });
     sessions.add(dateStr);
     if (!from || dateStr < from) from = dateStr;
     if (!to || dateStr > to) to = dateStr;
