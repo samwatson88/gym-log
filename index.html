@@ -240,7 +240,7 @@ nav.bottom svg { width: 22px; height: 22px; }
       <input id="syncUrl" placeholder="https://script.google.com/macros/s/.../exec">
       <div style="height:8px"></div>
       <label>Token</label>
-      <input id="token" placeholder="The token you set in the script">
+      <input id="token" placeholder="The token from your script (entered once per device)">
       <div style="height:10px"></div>
       <div class="row">
         <button class="primary" id="saveSyncBtn" style="width:auto">Save</button>
@@ -506,6 +506,10 @@ Object.assign(CUES, {
   "Cable Chest Press": ["Set the handles at mid-chest height.", "Press forward, keeping your shoulder blades back.", "Return with control.", "Keep your back neutral."]
 });
 
+// Your sync address is filled in automatically. The token is still entered once per device,
+// because it's the secret that protects your sheet.
+const DEFAULT_SYNC_URL = "https://script.google.com/macros/s/AKfycbwjNOUwbDQqqCDdrh9g2vB0P2VCryNVzuyTUMcOl6x5Bx6jqbRsVX2xRvByAyguUgAuXQ/exec";
+
 // ---------- Storage ----------
 const KEY = "ascend.v4";
 const OLD_KEYS = ["gymlog.v3", "gymlog.v2"];
@@ -546,6 +550,7 @@ state.custom = state.custom || [];
 state.pending = state.pending || [];
 state.history = state.history || [];
 state.restSeconds = state.restSeconds || 120;
+state.syncUrl = state.syncUrl || DEFAULT_SYNC_URL;
 state.increment = state.increment || 2.5;
 state.activities = state.activities || [];
 state.bodyWeight = state.bodyWeight || 80;
@@ -635,7 +640,7 @@ function showTab(name) {
     $("tab" + n).classList.toggle("active", n === name);
     $("v" + n).classList.toggle("hidden", n !== name);
   });
-  if (name === "Workout") renderActive();
+  if (name === "Workout") { renderActive(); if (state.syncUrl) pullFromSheet(); }
   if (name === "Programme") renderProgram();
   if (name === "History") { renderHistory(); pullFromSheet(); }
   if (name === "Settings") fillSettings();
@@ -1108,7 +1113,7 @@ async function pullFromSheet() {
     const d = await r.json();
     if (d.error) { setStatus("Sheet says: " + d.error + ". Check the token matches the script."); return; }
     applyRemote(d);
-    renderAll();
+    if (state.current) { renderHome(); renderHistory(); renderGoals(); } else renderAll();
     updateSyncStatus();
   } catch (e) {
     setStatus("Couldn't reach the sheet. Showing saved data.");
@@ -1128,6 +1133,7 @@ function updateSyncStatus() {
 }
 
 window.addEventListener("online", () => { pullFromSheet(); toast("Back online. Syncing…"); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.syncUrl) pullFromSheet(); });
 window.addEventListener("offline", updateSyncStatus);
 
 function fillSettings() {
