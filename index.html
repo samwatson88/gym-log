@@ -193,7 +193,7 @@ nav.bottom svg { width: 22px; height: 22px; }
       <div style="height:8px"></div>
       <button class="ghost small danger" id="delProgBtn">Delete this programme</button>
       <div style="height:12px"></div>
-      <div class="prow muted" style="margin-bottom:4px;grid-template-columns:86px 1fr 46px 46px 46px auto"><span>Group</span><span>Exercise</span><span class="center">Sets</span><span class="center">Min</span><span class="center">Max</span><span></span></div>
+      <div class="prow muted" style="margin-bottom:4px;grid-template-columns:1fr 46px 46px 46px auto"><span>Exercise</span><span class="center">Sets</span><span class="center">Min</span><span class="center">Max</span><span></span></div>
       <div id="programDays"></div>
       <button class="primary" id="addDayBtn">+ Add day</button>
     </div>
@@ -959,24 +959,20 @@ function renderProgram() {
   $("progPick").innerHTML = state.programs.map(x => `<option value="${esc(x.name)}"${x === p ? " selected" : ""}>${esc(x.name)}</option>`).join("") + `<option value="__new__">+ New programme</option>`;
   $("progName").value = p.name;
   $("progRest").value = String(p.rest || 120);
-  const groupOpts = sel => GROUP_NAMES.map(g => `<option value="${g}"${g === sel ? " selected" : ""}>${g}</option>`).join("");
   $("programDays").innerHTML = p.days.map((d, di) => `
     <div class="card day">
       <div class="row" style="margin-bottom:10px">
         <input data-kind="day" data-d="${di}" value="${esc(d.name)}" style="flex:1;font-weight:600">
         <button class="ghost small danger" data-del-day="${di}">Delete day</button>
       </div>
-      ${d.exercises.map((e, ei) => {
-        const g = groupOf(e.name);
-        return `<div class="prow" style="grid-template-columns:86px 1fr 46px 46px 46px auto">
-          <select data-kind="group" data-d="${di}" data-e="${ei}" style="padding:8px 4px;font-size:13px">${groupOpts(g)}</select>
-          <select data-kind="exercise" data-d="${di}" data-e="${ei}" style="padding:8px 4px;font-size:13px"><option value="__new__">+ Add new exercise</option>${exercisesInGroup(g).map(n => `<option value="${esc(n)}"${n === e.name ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>
+      ${d.exercises.map((e, ei) => `
+        <div class="prow" style="grid-template-columns:1fr 46px 46px 46px auto">
+          <button class="ghost" data-pick="1" data-d="${di}" data-e="${ei}" style="text-align:left;font-size:14px;line-height:1.25;white-space:normal;padding:8px 10px">${esc(e.name)}<span class="muted" style="display:block;font-size:11px">${groupOf(e.name)}</span></button>
           <input class="sm" type="number" inputmode="numeric" data-kind="num" data-f="sets" data-d="${di}" data-e="${ei}" value="${e.sets}">
           <input class="sm" type="number" inputmode="numeric" data-kind="num" data-f="min" data-d="${di}" data-e="${ei}" value="${e.min}">
           <input class="sm" type="number" inputmode="numeric" data-kind="num" data-f="max" data-d="${di}" data-e="${ei}" value="${e.max}">
           <button class="ghost small danger" data-del-ex="${di}" data-e="${ei}" style="padding:2px 8px">✕</button>
-        </div>`;
-      }).join("")}
+        </div>`).join("")}
       <label style="margin-top:8px">Warm-up (one line each)</label>
       <textarea data-kind="warm" data-d="${di}" rows="3" style="margin-bottom:8px">${esc((d.warmup || []).join("\n"))}</textarea>
       <button class="ghost small" data-add-ex="${di}">+ Exercise</button>
@@ -1555,9 +1551,11 @@ function renderHome() {
   ).join("") || `<p class="muted">No classes or runs logged yet.</p>`;
 
   $("homeTop").innerHTML = `
+    ${todayHtml()}
     <div class="card"><p style="margin:0;font-size:15px;font-style:italic;color:var(--white)">“${esc(quote)}”</p></div>
     <div class="card">
       <h2>This week</h2>
+      <div class="progress" style="margin:0 0 12px"><span style="width:${Math.min(100, thisWeek.days / thisWeek.target * 100).toFixed(0)}%"></span></div>
       <div class="grid2">
         <div><div class="muted">Days trained</div><div class="big">${thisWeek.days} <span class="muted" style="font-size:16px">/ ${thisWeek.target}</span></div></div>
         <div><div class="muted">Weekly score</div><div class="big">${thisWeek.score}</div></div>
@@ -2443,9 +2441,8 @@ function dayPopup(ds) {
 
 // ---------- Personal bests: pick each lift, up to 12 ----------
 function pbBox(i, name) {
-  const opts = allNames().map(n => `<option value="${esc(n)}"${n === name ? " selected" : ""}>${esc(n)}</option>`).join("");
   const b = bestE1(name);
-  return `<div class="pb"><select onchange="setPb(${i}, this.value)" style="padding:4px 6px;font-size:12px">${opts}<option value="__remove__">Remove</option></select><b>${b ? b.est.toFixed(1) : "–"}</b><span class="muted" style="font-size:11px">${b ? b.w + "×" + b.r : "no data"}</span></div>`;
+  return `<div class="pb"><button onclick="openPbPicker(${i})" style="display:block;text-align:left;background:none;border:none;padding:0;cursor:pointer;font:inherit;font-size:12px;font-weight:600;color:var(--text);line-height:1.25;word-break:break-word">${esc(name)}</button><b>${b ? b.est.toFixed(1) : "–"}</b><span class="muted" style="font-size:11px">${b ? b.w + "×" + b.r : "no data"}</span></div>`;
 }
 function pbsHtml() {
   const boxes = state.pbSlots.map((n, i) => pbBox(i, n));
@@ -2458,9 +2455,7 @@ function setPb(i, v) {
 }
 function addPb() {
   if (state.pbSlots.length >= 12) { toast("Maximum of 12 lifts"); return; }
-  const unused = allNames().find(n => !state.pbSlots.includes(n));
-  state.pbSlots.push(unused || "Back Squat");
-  save(); renderHome();
+  openPicker("Add a lift", null, n => { state.pbSlots.push(n); save(); renderHome(); });
 }
 
 // ---------- Goals on Home, and frequency goals ----------
@@ -2684,7 +2679,8 @@ $("programDays").addEventListener("change", e => {
 });
 
 $("programDays").addEventListener("click", e => {
-  const t = e.target;
+  const t = e.target.closest("button") || e.target;
+  if (t.dataset.pick !== undefined) { openExercisePicker(parseInt(t.dataset.d, 10), parseInt(t.dataset.e, 10)); return; }
   if (t.dataset.delDay !== undefined) {
     if (!confirm("Delete this day and its exercises?")) return;
     activeProg().days.splice(parseInt(t.dataset.delDay, 10), 1);
@@ -2695,6 +2691,72 @@ $("programDays").addEventListener("click", e => {
   } else return;
   saveProgram(); renderProgram(); renderStart();
 });
+
+// ---------- Colour scheme, picker, today's session ----------
+$("accentSel").onchange = e => { state.accent = e.target.value; save(); applyTheme(); toast("Colour scheme updated"); };
+
+let pickCtx = null;
+function openPicker(title, current, onPick, onRemove) {
+  pickCtx = { title, onPick, onRemove, current, group: current ? groupOf(current) : null, list: [] };
+  renderPicker();
+}
+function renderPicker() {
+  const c = pickCtx;
+  let body;
+  if (!c.group) {
+    body = `<h3 style="margin:0 0 4px">${esc(c.title)}</h3><p class="muted" style="margin:0 0 12px">Choose a muscle group</p>` +
+      GROUP_NAMES.map(g => `<button class="ghost" style="width:100%;text-align:left;margin-bottom:8px;display:flex;justify-content:space-between" onclick="pickGroup('${g}')"><span>${g}</span><span class="muted">${exercisesInGroup(g).length}</span></button>`).join("");
+  } else {
+    c.list = exercisesInGroup(c.group);
+    body = `<div class="row" style="justify-content:space-between;margin-bottom:10px"><button class="ghost small" onclick="pickBack()">‹ Back</button><b>${c.group}</b><span></span></div>` +
+      `<button class="primary" style="margin-bottom:10px" onclick="pickNew()">+ Add new exercise</button>` +
+      c.list.map((n, i) => `<button class="ghost" style="width:100%;text-align:left;margin-bottom:6px;${n === c.current ? "border-color:var(--accent);" : ""}" onclick="pickExercise(${i})">${esc(n)}</button>`).join("");
+  }
+  if (c.onRemove) body += `<button class="ghost danger" style="width:100%;margin-top:8px" onclick="pickRemove()">Remove</button>`;
+  openInfo(body);
+}
+function pickGroup(g) { pickCtx.group = g; renderPicker(); }
+function pickBack() { pickCtx.group = null; renderPicker(); }
+function pickExercise(i) { const cb = pickCtx.onPick, n = pickCtx.list[i]; closeInfo(); cb(n); }
+function pickNew() {
+  const n = (prompt("Name for the new exercise") || "").trim();
+  if (!n) return;
+  const cb = pickCtx.onPick, g = pickCtx.group;
+  addCustomExercise(n, g);
+  closeInfo(); cb(n);
+}
+function pickRemove() { const cb = pickCtx.onRemove; closeInfo(); cb(); }
+function openExercisePicker(di, ei) {
+  openPicker("Exercise", activeProg().days[di].exercises[ei].name, n => {
+    activeProg().days[di].exercises[ei].name = n;
+    saveProgram(); renderProgram(); renderStart();
+  });
+}
+function openPbPicker(i) {
+  openPicker("Lift", state.pbSlots[i], n => { state.pbSlots[i] = n; save(); renderHome(); },
+    () => { state.pbSlots.splice(i, 1); save(); renderHome(); });
+}
+
+function todayHtml() {
+  const p = activeProg();
+  const date = new Date().toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+  const head = `<p class="muted" style="margin:0 0 8px">${esc(date)}</p>`;
+  if (!p.days.length) return `<div class="card">${head}<h2>Today</h2><p class="muted">No sessions in this programme yet.</p><button class="primary" onclick="showTab('Programme')">Open Train to add one</button></div>`;
+  const idx = suggestedDayIndex();
+  const day = p.days[idx] || p.days[0];
+  const first = day.exercises.slice(0, 4).map(e => esc(e.name));
+  const more = day.exercises.length - first.length;
+  return `<div class="card" style="border-color:var(--accent)">${head}<h2>Today's session</h2>
+    <div class="big" style="font-size:26px">${esc(day.name)}</div>
+    <p class="muted" style="margin:4px 0 10px">${esc(p.name)} · ${day.exercises.length} exercises</p>
+    <p style="margin:0 0 12px;font-size:14px">${first.join(" · ")}${more > 0 ? ` · +${more} more` : ""}</p>
+    <button class="primary" onclick="startSuggested(${idx})">Start workout</button></div>`;
+}
+function startSuggested(idx) {
+  if (state.current) { toast("A workout is already running"); return; }
+  $("daySelect").value = String(idx);
+  $("startBtn").click();
+}
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
