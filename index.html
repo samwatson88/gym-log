@@ -297,6 +297,7 @@ nav.bottom svg { width: 22px; height: 22px; }
       </div>
     </div>
 
+    <div id="nameMapCard"></div>
     <div class="card">
       <h2>Backup</h2>
       <p class="muted">Export everything: workouts and sets, classes and runs, your programme with warm-ups, and settings. Keep the file somewhere safe.</p>
@@ -607,6 +608,7 @@ state.custom = state.custom || [];
 state.pending = state.pending || [];
 state.history = state.history || [];
 state.customGroups = state.customGroups || {};
+state.nameMap = state.nameMap || {};
 state.syncUrl = state.syncUrl || DEFAULT_SYNC_URL;
 state.increment = state.increment || 2.5;
 state.activities = state.activities || [];
@@ -1137,6 +1139,7 @@ async function flushQueue() {
 function applyRemote(d) {
   const remoteSets = (d.sets || []).map(remoteRec);
   lastRemoteKeys = new Set(remoteSets.map(r => r.time + "|" + normEx(r.exercise)));
+  lastRawNames = new Set(remoteSets.map(r => r.exercise));
   const pendingSets = state.pending.flatMap(p => (p.action === "program" || p.action === "activity") ? [] : p.action === "bulk" ? p.rows : [p]).map(payloadToRec);
   state.history = buildHistory([...remoteSets, ...pendingSets, ...flattenHistory()]);
   const actMap = new Map();
@@ -1206,6 +1209,7 @@ async function pullFromSheet() {
   try {
     applyRemote(d);
     if (state.current) { renderHome(); renderHistory(); renderGoals(); } else renderAll();
+    renderNameMap();
     updateSyncStatus();
   } catch (e) {
     setStatus("Got the data from the sheet but couldn't show it: " + e.message + ". Showing saved data.");
@@ -1229,6 +1233,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && st
 window.addEventListener("offline", updateSyncStatus);
 
 function fillSettings() {
+  renderNameMap();
   $("syncUrl").value = state.syncUrl || "";
   $("token").value = state.token || "";
   $("incKg").value = state.increment;
@@ -2308,11 +2313,15 @@ $("clipRemove").onclick = () => {
 // ---------- Names, programme tidy-up ----------
 const NAME_ALIASES = {
   "Flat Barbell Bench Press": "Barbell Bench Press",
+  "Deadlift": "Conventional Deadlift",
+  "Weighted Pull Up": "Weighted Pull-up",
+  "Overhead Press": "Standing Barbell OHP",
+  "Barbell Overhead Press": "Standing Barbell OHP",
   "Abs": "Captain's Chair",
   "Captains Chair": "Captain's Chair",
   "Captain's chair": "Captain's Chair"
 };
-function normEx(n) { return NAME_ALIASES[n] || n; }
+function normEx(n) { return (state.nameMap && state.nameMap[n]) || NAME_ALIASES[n] || n; }
 function migrateProgram(p) {
   let changed = false;
   p.days.forEach(d => d.exercises.forEach(e => { const n = normEx(e.name); if (n !== e.name) { e.name = n; changed = true; } }));
@@ -2792,8 +2801,52 @@ $("checkSheetBtn").onclick = () => {
   }
   save();
   toast(`Re-sending ${missing.length} sets missing from the sheet`);
-  flushQueue();
+  flushQueue()
+    .then(() => pullFromSheet())
+    .then(() => {
+      const left = countMissing();
+      toast(left ? `${left} sets still missing. Check Apps Script > Executions for errors.` : "The sheet has every set now");
+    });
 };
+
+// Counts sets on this device that the sheet still doesn't have (after the last read)
+function countMissing() {
+  if (!lastRemoteKeys) return -1;
+  const pendingKeys = new Set(state.pending.filter(p => p.action === "bulk" || !p.action)
+    .flatMap(p => p.action === "bulk" ? p.rows : [p])
+    .map(p => String(p.setTime) + "|" + normEx(p.exercise)));
+  return flattenHistory().filter(r => {
+    const k = r.time + "|" + r.exercise;
+    return !lastRemoteKeys.has(k) && !pendingKeys.has(k);
+  }).length;
+}
+
+
+// ---------- Exercise names: match names from your history to the app's exercises ----------
+let lastRawNames = null, unmatchedNames = [];
+function renderNameMap() {
+  const el = $("nameMapCard");
+  if (!el) return;
+  if (!lastRawNames) {
+    el.innerHTML = `<div class="card"><h2>Exercise names</h2><p class="muted">Sync first, then this will show any names from your history that don't match the app.</p></div>`;
+    return;
+  }
+  const known = new Set(allNames());
+  unmatchedNames = [...lastRawNames].filter(n => !known.has(normEx(n))).sort();
+  el.innerHTML = `<div class="card"><h2>Exercise names</h2>` + (unmatchedNames.length
+    ? `<p class="muted">These names from your history don't match an exercise in the app. Match each one so it counts towards the same lift.</p>` +
+      unmatchedNames.map((n, i) => `<div class="set-line" style="grid-template-columns:1fr auto"><span>${esc(n)}</span><button class="ghost small" onclick="matchName(${i})">Match</button></div>`).join("")
+    : `<p class="muted">Every exercise name in your history matches the app.</p>`) + `</div>`;
+}
+function matchName(i) {
+  const name = unmatchedNames[i];
+  openPicker(`Match "${name}"`, null, n => {
+    state.nameMap[name] = n;
+    save();
+    toast(`Matched to ${n}`);
+    pullFromSheet();
+  });
+}
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
