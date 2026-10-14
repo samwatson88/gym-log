@@ -321,6 +321,7 @@ nav.bottom svg { width: 22px; height: 22px; }
     <div class="card">
       <h2>Data</h2>
       <p class="muted">Erasing clears this device only. Your Google Sheet keeps its copy and will sync back when you reconnect.</p>
+      <button class="ghost" id="checkSheetBtn" style="margin-bottom:10px">Check sheet is complete</button>
       <button class="ghost danger" id="wipeBtn">Erase data on this device</button>
     </div>
   </section>
@@ -1135,6 +1136,7 @@ async function flushQueue() {
 
 function applyRemote(d) {
   const remoteSets = (d.sets || []).map(remoteRec);
+  lastRemoteKeys = new Set(remoteSets.map(r => r.time + "|" + normEx(r.exercise)));
   const pendingSets = state.pending.flatMap(p => (p.action === "program" || p.action === "activity") ? [] : p.action === "bulk" ? p.rows : [p]).map(payloadToRec);
   state.history = buildHistory([...remoteSets, ...pendingSets, ...flattenHistory()]);
   const actMap = new Map();
@@ -2764,6 +2766,34 @@ function startSuggested(idx) {
   $("daySelect").value = String(idx);
   $("startBtn").click();
 }
+
+
+// ---------- Checking the sheet has every set ----------
+let lastRemoteKeys = null;
+$("checkSheetBtn").onclick = () => {
+  if (!lastRemoteKeys) { toast("Sync first, then check again"); return; }
+  const pendingKeys = new Set(state.pending.filter(p => p.action === "bulk" || !p.action)
+    .flatMap(p => p.action === "bulk" ? p.rows : [p])
+    .map(p => String(p.setTime) + "|" + normEx(p.exercise)));
+  const counter = {};
+  const missing = flattenHistory().filter(r => {
+    const k = r.time + "|" + r.exercise;
+    return !lastRemoteKeys.has(k) && !pendingKeys.has(k);
+  }).map(r => {
+    const ck = r.sid + "|" + r.exercise;
+    counter[ck] = (counter[ck] || 0) + 1;
+    return { timestamp: r.time, workoutDate: r.date, exercise: r.exercise, set: counter[ck], weight: r.weight, reps: r.reps,
+      setTime: r.time, restSeconds: r.restSeconds ?? "", sessionId: r.sid, dayName: r.dayName, rir: r.rir ?? "", warmup: r.warmup ? "yes" : "" };
+  });
+  if (!missing.length) { toast("The sheet has every set on this device"); return; }
+  if (!state.syncUrl) { toast("Connect the sheet first"); return; }
+  for (let i = 0; i < missing.length; i += 500) {
+    state.pending.push({ action: "bulk", rows: missing.slice(i, i + 500), timestamp: new Date().toISOString() });
+  }
+  save();
+  toast(`Re-sending ${missing.length} sets missing from the sheet`);
+  flushQueue();
+};
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
