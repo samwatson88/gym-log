@@ -419,44 +419,40 @@ nav.bottom svg { width: 22px; height: 22px; }
 
 <script>
 // ---------- Built-in programme. Format: Day|Exercise|Sets|RepMin|RepMax ----------
-const DEFAULT_TSV = `Push A — Bench|Barbell Bench Press|4|4|6
-Push A — Bench|Incline DB Press|3|8|10
+const DEFAULT_TSV = `Push A — Bench|Barbell Bench Press|5|4|6
 Push A — Bench|Seated DB Shoulder Press|3|8|10
-Push A — Bench|Cable Fly / Pec Deck|3|12|15
-Push A — Bench|Lateral Raise|3|12|15
-Push A — Bench|Triceps Pushdown|3|10|12
-Push A — Bench|Overhead Triceps Extension|2|12|15
-Pull A — Deadlift|Conventional Deadlift|3|3|5
+Push A — Bench|Pec Deck|3|10|12
+Push A — Bench|DB Lateral Raise|3|10|12
+Push A — Bench|Cable Triceps Pushdown|3|10|15
+Pull A — Deadlift|Conventional Deadlift|2|4|6
 Pull A — Deadlift|Weighted Pull-up|3|6|8
-Pull A — Deadlift|Seated Cable Row|3|10|12
-Pull A — Deadlift|Face Pull|3|15|20
-Pull A — Deadlift|Cable External Rotation|3|15|20
-Pull A — Deadlift|Cable Curl|3|10|15
-Pull A — Deadlift|DB Pullover|3|12|15
+Pull A — Deadlift|Seated Cable Row|3|8|12
+Pull A — Deadlift|DB Pullover|2|10|12
+Pull A — Deadlift|Face Pull|2|10|15
+Pull A — Deadlift|Cable Curl|3|10|12
+Pull A — Deadlift|DB Shrug|2|8|12
 Legs A — Unilateral|Bulgarian Split Squat|4|6|8
 Legs A — Unilateral|Front Squat|3|6|8
-Legs A — Unilateral|Leg Press|3|10|12
+Legs A — Unilateral|Leg Extensions|3|8|10
+Legs A — Unilateral|Hip Thrust|3|8|12
 Legs A — Unilateral|Seated Leg Curl|3|12|15
-Legs A — Unilateral|Barbell side bends|3|10|15
-Legs A — Unilateral|Captain's Chair|3|10|15
+Legs A — Unilateral|Standing Calf Raise|3|8|12
 Push B — OHP|Standing Barbell OHP|4|4|6
-Push B — OHP|Incline DB/Barbell Press|3|8|10
-Push B — OHP|Flat DB or Machine Press|3|10|12
-Push B — OHP|Cable Lateral Raise|3|12|15
-Push B — OHP|Rear Delt Fly|3|15|20
-Push B — OHP|Close-Grip Bench / Skull Crushers|3|10|12
-Push B — OHP|Rope Triceps Pushdown|2|12|15
+Push B — OHP|Incline DB Press|3|8|10
+Push B — OHP|Cable Fly|3|12|15
+Push B — OHP|Cable Lateral Raise|3|12|20
+Push B — OHP|EZ-Bar Skull Crusher|3|6|8
 Pull B — Row|Barbell Row|4|5|6
 Pull B — Row|Lat Pulldown|3|8|10
-Pull B — Row|Seated Cable Row|2|10|12
+Pull B — Row|One-arm dumbbell row|2|10|12
 Pull B — Row|Rear Delt Fly|3|15|20
 Pull B — Row|Suitcase Carry|3|2|4
-Pull B — Row|Cable External Rotation|3|15|20
+Pull B — Row|Incline DB Y-raise|3|15|20
 Pull B — Row|Hammer Curl|3|8|12
-Legs B — Squat|Back Squat|4|4|6
+Legs B — Squat|Back Squat|5|4|6
 Legs B — Squat|Romanian Deadlift|3|8|10
-Legs B — Squat|Leg Extension|3|12|15
-Legs B — Squat|Leg Curl|3|12|15
+Legs B — Squat|ATG Split Squat|3|10|12
+Legs B — Squat|Lying Leg Curl|3|10|12
 Legs B — Squat|Captain's Chair|3|10|15`;
 
 const STRONG_TSV = `Workout A|Back Squat|5|5|5
@@ -618,7 +614,7 @@ state.theme = state.theme || "light";
 state.cheer = !!state.cheer;
 state.cheerText = state.cheerText || "Let's go!";
 state.accent = state.accent || "steel";
-state.pbSlots = state.pbSlots || ["Back Squat", "Conventional Deadlift", "Bulgarian Split Squat", "Weighted Pull-up", "Barbell Row", "Barbell Bench Press", "Standing Barbell OHP"];
+state.pbSlots = state.pbSlots || PLAN_V2_PB.slice();
 applyTheme();
 state.programs.forEach(p => p.days.forEach(d => { if (!d.warmup) d.warmup = defaultWarmup(d.name); }));
 
@@ -770,7 +766,7 @@ function recentSessions(name, n) {
 function suggestion(planned, name) {
   const sessions = recentSessions(name, 3);
   const sets = sessions[0];
-  const inc = state.increment;
+  const inc = incrementFor(name);
   if (!sets) return `First time. Choose a weight you can lift for ${planned.min}–${planned.max} reps, stopping with 1–2 reps in reserve.`;
   const top = Math.max(...sets.map(s => s.weight));
   const atTop = sets.filter(s => s.weight === top);
@@ -1613,7 +1609,7 @@ function renderWeekly() {
     return `<tr><td>${shortDate(k)}</td><td>${atTop.length}×${repStr} @ ${top} kg</td><td>${e1.toFixed(1)}</td><td>${change}</td></tr>`;
   }).join("");
   $("weekTable").innerHTML = `<table><thead><tr><th>Week</th><th>Top sets</th><th>Est. 1RM</th><th>Change</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="muted" style="margin-top:10px">Next week target: <b style="color:var(--steel-light)">${r1(prevTop + state.increment)} kg</b> (+${state.increment} kg)</p>`;
+    <p class="muted" style="margin-top:10px">Next week target: <b style="color:var(--steel-light)">${r1(prevTop + incrementFor(name))} kg</b> (+${incrementFor(name)} kg)</p>`;
 }
 
 $("closeFinish").onclick = () => $("finishModal").classList.add("hidden");
@@ -2313,6 +2309,30 @@ $("clipRemove").onclick = () => {
 // ---------- Names, programme tidy-up ----------
 const NAME_ALIASES = {
   "Flat Barbell Bench Press": "Barbell Bench Press",
+  "Seated Dumbbell Press": "Seated DB Shoulder Press",
+  "Seated Machine Fly": "Pec Deck",
+  "Lateral Dumbbell Raise": "DB Lateral Raise",
+  "Cable. Pushdown": "Cable Triceps Pushdown",
+  "Pull Up": "Weighted Pull-up",
+  "Cable Face Pull": "Face Pull",
+  "Barbell Front Squat": "Front Squat",
+  "Leg Extension Machine": "Leg Extensions",
+  "Hip Thrusts": "Hip Thrust",
+  "Seated Leg Curl Machine": "Seated Leg Curl",
+  "Straight Leg Calf Raise": "Standing Calf Raise",
+  "Incline Dumbbell Bench Press": "Incline DB Press",
+  "Cable Crossover": "Cable Fly",
+  "Cable Lateral Rasie": "Cable Lateral Raise",
+  "EZ-Bar Skullcrusher": "EZ-Bar Skull Crusher",
+  "One Arm Dumell Row": "One-arm dumbbell row",
+  "One Arm Dumbell Row": "One-arm dumbbell row",
+  "Rear Delt Machine Fly": "Rear Delt Fly",
+  "Y Raise": "Incline DB Y-raise",
+  "Dumbbell Hammer Curl": "Hammer Curl",
+  "Barbell Squat": "Back Squat",
+  "Atg Split Squat": "ATG Split Squat",
+  "Lying Leg Curl Machine": "Lying Leg Curl",
+  "Hanging Leg Raise": "Captain's Chair",
   "Deadlift": "Conventional Deadlift",
   "Weighted Pull Up": "Weighted Pull-up",
   "Overhead Press": "Standing Barbell OHP",
@@ -2848,6 +2868,49 @@ function matchName(i) {
   });
 }
 
+
+// ---------- Plan v2: increments, short names, groups and tips ----------
+const INCREMENTS = {
+  "Barbell Bench Press": 2.5, "Seated DB Shoulder Press": 2, "Pec Deck": 2.5, "DB Lateral Raise": 1, "Cable Triceps Pushdown": 2.5,
+  "Conventional Deadlift": 2.5, "Weighted Pull-up": 2.5, "Seated Cable Row": 2.5, "DB Pullover": 2, "Face Pull": 2.5, "Cable Curl": 2.5, "DB Shrug": 2,
+  "Bulgarian Split Squat": 2, "Front Squat": 2.5, "Leg Extensions": 2, "Hip Thrust": 2.5, "Seated Leg Curl": 2.5, "Standing Calf Raise": 2.5,
+  "Standing Barbell OHP": 2.5, "Incline DB Press": 2, "Cable Fly": 2.5, "Cable Lateral Raise": 1, "EZ-Bar Skull Crusher": 2.5,
+  "Barbell Row": 2.5, "Lat Pulldown": 2.5, "One-arm dumbbell row": 2, "Rear Delt Fly": 2.5, "Suitcase Carry": 1, "Incline DB Y-raise": 1, "Hammer Curl": 2,
+  "Back Squat": 2.5, "Romanian Deadlift": 2.5, "ATG Split Squat": 2.5, "Lying Leg Curl": 2.5, "Captain's Chair": 1
+};
+function incrementFor(name) { return INCREMENTS[name] || state.increment || 2.5; }
+
+const SHORT_NAMES = {
+  "Barbell Bench Press": "Bench", "Barbell Row": "BOR", "Standing Barbell OHP": "OHP",
+  "Back Squat": "Squat", "Conventional Deadlift": "DL", "Weighted Pull-up": "Pull up"
+};
+const PLAN_V2_PB = ["Back Squat", "Conventional Deadlift", "Weighted Pull-up", "Barbell Row", "Barbell Bench Press", "Standing Barbell OHP"];
+
+GROUPS.Chest.push("Pec Deck");
+GROUPS.Legs.push("Hip Thrust", "ATG Split Squat", "Standing Calf Raise", "Leg Extensions", "Lying Leg Curl", "Seated Leg Curl");
+GROUPS.Shoulders.push("DB Lateral Raise", "Incline DB Y-raise");
+GROUPS.Arms.push("Cable Triceps Pushdown", "EZ-Bar Skull Crusher");
+GROUPS.Back.push("One-arm dumbbell row", "DB Shrug", "Incline DB Y-raise");
+Object.assign(CUES, {
+  "Hip Thrust": ["Shoulder blades on the bench, feet flat and about hip width apart.", "Drive through your heels to lift the hips until your torso is level.", "Tuck your chin and squeeze the glutes at the top.", "Lower with control to just above the floor."],
+  "ATG Split Squat": ["Front foot flat, back knee lowered towards the floor.", "Keep your torso upright and weight through the front heel.", "Let the back knee touch the floor lightly, don't bounce.", "Push through the front heel to stand."],
+  "Standing Calf Raise": ["Balls of the feet on the edge of a step, heels dropping below it.", "Pause at the bottom for a full stretch.", "Rise as high as you can and pause at the top.", "Lower slowly."],
+  "Incline DB Y-raise": ["Lie face down on an incline bench with dumbbells hanging.", "Raise the arms in a Y shape, leading with the elbows.", "Squeeze the shoulder blades down and back at the top.", "Lower slowly without shrugging."],
+  "Pec Deck": ["Set the seat so your upper arms sit level with the pads.", "Bring the pads together in front of your chest.", "Squeeze for a second at the middle.", "Let the chest stretch on the way back."],
+  "DB Lateral Raise": ["Slight bend in the elbows, lead with them.", "Raise to shoulder height, no higher.", "Control the way down."],
+  "Cable Triceps Pushdown": ["Elbows pinned to your sides.", "Push the bar down until your arms are straight.", "Only your forearms move.", "Control the return."],
+  "One-arm dumbbell row": ["One hand and knee on the bench, back flat.", "Pull the dumbbell to your hip, elbow close to your body.", "Pause at the top.", "Lower until the lat is stretched."],
+  "DB Shrug": ["Hold dumbbells at your sides, arms straight.", "Lift the shoulders straight up towards your ears.", "Pause at the top, then lower slowly.", "Don't roll the shoulders."],
+  "Leg Extensions": ["Set the pad just above your ankles.", "Extend the knees until the legs are straight but not locked.", "Pause briefly at the top.", "Lower slowly."],
+  "EZ-Bar Skull Crusher": ["Lie on a bench, elbows pointing to the ceiling.", "Lower the bar to your forehead or just behind it.", "Keep your upper arms still.", "Extend back up without flaring the elbows."],
+  "Cable Fly": ["Hands together in an arc in front of your chest.", "Keep a slight bend in the elbows, fixed through the rep.", "Squeeze for a second at the middle.", "Let the chest stretch on the way back."]
+});
+
+function pbBox(i, name) {
+  const b = bestE1(name);
+  return `<div class="pb"><button onclick="openPbPicker(${i})" title="${esc(name)}" style="display:block;text-align:left;background:none;border:none;padding:0;cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--text);line-height:1.25">${esc(SHORT_NAMES[name] || name)}</button><b>${b ? b.est.toFixed(1) : "–"}</b><span class="muted" style="font-size:11px">${b ? b.w + "×" + b.r : "no data"}</span></div>`;
+}
+
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
@@ -2855,6 +2918,14 @@ if ("serviceWorker" in navigator) {
 
 // ---------- Init ----------
 if (migrateProgram(activeProg()) && state.syncUrl) queueProgram();
+if (state.planVersion !== 2) {
+  const pp = state.programs.find(p => p.name === "6 Day PPL");
+  if (pp) pp.days = defaultPrograms().find(p => p.name === "6 Day PPL").days;
+  state.pbSlots = PLAN_V2_PB.slice();
+  state.planVersion = 2;
+  save();
+  if (pp && state.syncUrl) queueProgram();
+}
 renderAll();
 updateSyncStatus();
 refreshClip();
